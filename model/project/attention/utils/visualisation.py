@@ -65,7 +65,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", type=str, required=True,
-                        help="путь к файлу epoch_XXX.pth", default='../checkpoints/epoch_013.pth')
+                        help="путь к файлу epoch_XXX.pth", default='../checkpoints/full_epoch_001.pth')
     parser.add_argument("--cover", type=str, required=True,
                         help="путь к изображению cover", default='../../dataset/DIV2K_train_HR/0001.png')
     parser.add_argument("--secret", type=str, required=True,
@@ -75,3 +75,5 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     G, E = load_checkpoint(args.checkpoint, device)
     visualize_pair(G, E, args.cover, args.secret, device)
+
+# python .\visualisation.py --checkpoint ../checkpoints/full_epoch_001.pth --cover ../../dataset/DIV2K_train_HR/0001.png --secret ../../dataset/DIV2K_train_HR/0002.png

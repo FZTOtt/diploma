@@ -1,10 +1,10 @@
+import random
 import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from attention.models.generator import Generator
 from attention.models.extractor import Extractor
@@ -68,7 +68,10 @@ def train(
         running_lc = 0.0
         for i, (cover, _) in enumerate(loader, 1):
             cover = cover.to(device)
-            # feed cover twice (or cover + zeros) to force G≈identity
+            if random.random() < 0.5:
+                secret = torch.zeros_like(cover)  # обучение сохранению cover
+            else:
+                secret = torch.randn_like(cover)
             stego = G(cover, cover)  
             lc = concealment_loss(cover, stego)
 
@@ -121,7 +124,6 @@ def train(
                       f"G_loss = {running_g_loss/i:.4f}, "
                       f"D_loss = {running_d_loss/i:.4f}")
 
-        # (по желанию) сохраняем модели после каждой эпохи
         ckpt = {
             'G': G.state_dict(),
             'E': E.state_dict(),
@@ -130,11 +132,6 @@ def train(
         torch.save(ckpt, f"./checkpoints/full_epoch_{epoch:03d}.pth")
 
     print("Training complete.")
-
-        # Сохраняем чекпоинт после каждой эпохи
-        # ckpt_path = f"./checkpoints/epoch_{epoch:03d}.pth"
-        # save_checkpoint({'G':G,'E':E,'D':D}, {'G':optG,'D':optD}, epoch, ckpt_path)
-        # print(f"-> Epoch {epoch} done, checkpoints saved to {ckpt_path}\n")
 
 if __name__ == "__main__":
     import argparse
