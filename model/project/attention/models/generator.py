@@ -6,27 +6,39 @@ import torch.nn.functional as F
 class Generator(nn.Module):
     def __init__(self, in_channels=3, base_channels=64):
         super().__init__()
-        input_layers = []
+        input_cover_layers = []
 
-        input_layers.append(nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1))
-        # input_layers.append(nn.InstanceNorm2d(base_channels))
-        input_layers.append(nn.ReLU(inplace=True))
+        input_cover_layers.append(nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1))
+        input_cover_layers.append(nn.InstanceNorm2d(base_channels))
+        input_cover_layers.append(nn.ReLU(inplace=True))
 
-        input_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=4, stride=2, padding=1))
-        # input_layers.append(nn.InstanceNorm2d(base_channels))
-        input_layers.append(nn.ReLU(inplace=True))
+        input_cover_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=4, stride=2, padding=1))
+        input_cover_layers.append(nn.InstanceNorm2d(base_channels))
+        input_cover_layers.append(nn.ReLU(inplace=True))
 
-        self.conv_start_blocks = nn.Sequential(*input_layers)
+        self.conv_cover_blocks = nn.Sequential(*input_cover_layers)
+
+        input_secret_layers = []
+
+        input_secret_layers.append(nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1))
+        input_secret_layers.append(nn.InstanceNorm2d(base_channels))
+        input_secret_layers.append(nn.ReLU(inplace=True))
+
+        input_secret_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=4, stride=2, padding=1))
+        input_secret_layers.append(nn.InstanceNorm2d(base_channels))
+        input_secret_layers.append(nn.ReLU(inplace=True))
+
+        self.conv_secret_blocks = nn.Sequential(*input_secret_layers)
 
         fusion_layers = []
 
         fusion_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=1))
-        # fusion_layers.append(nn.InstanceNorm2d(base_channels))
+        fusion_layers.append(nn.InstanceNorm2d(base_channels))
         fusion_layers.append(nn.ReLU(inplace=True))
 
         for _ in range(2):
             fusion_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            # fusion_layers.append(nn.InstanceNorm2d(base_channels))
+            fusion_layers.append(nn.InstanceNorm2d(base_channels))
             fusion_layers.append(nn.ReLU(inplace=True))
 
         self.fusion_layers = nn.Sequential(*fusion_layers)
@@ -36,12 +48,12 @@ class Generator(nn.Module):
         up_sampling_layers = []
 
         up_sampling_layers.append(nn.ConvTranspose2d(base_channels, base_channels, kernel_size=4, stride=2, padding=1))
-        # up_sampling_layers.append(nn.InstanceNorm2d(base_channels))
+        up_sampling_layers.append(nn.InstanceNorm2d(base_channels))
         up_sampling_layers.append(nn.ReLU(inplace=True))
 
         for _ in range(2):
             up_sampling_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            # up_sampling_layers.append(nn.InstanceNorm2d(base_channels))
+            up_sampling_layers.append(nn.InstanceNorm2d(base_channels))
             up_sampling_layers.append(nn.ReLU(inplace=True))
 
         self.up_sampling_layers = nn.Sequential(*up_sampling_layers)
@@ -64,9 +76,9 @@ class Generator(nn.Module):
 
         # отдельно идёт первая пара conv
 
-        c = self.conv_start_blocks(cover)
+        c = self.conv_cover_blocks(cover)
         
-        s = self.conv_start_blocks(secret)
+        s = self.conv_secret_blocks(secret)
         
         # поэлементная сумма признаков
         x = c + s

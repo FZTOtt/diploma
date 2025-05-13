@@ -8,9 +8,9 @@ class Extractor(nn.Module):
         input_layers = []
         for _ in range(2):
             input_layers.append(nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1))
-            # input_layers.append(nn.InstanceNorm2d(base_channels))
+            input_layers.append(nn.InstanceNorm2d(base_channels))
             input_layers.append(nn.ReLU(inplace=True))
-            in_channels = base_channels  # после первого цикла in_channels==base_channels
+            in_channels = base_channels
         
         self.conv_start_blocks = nn.Sequential(*input_layers)
         
@@ -20,7 +20,7 @@ class Extractor(nn.Module):
         middle_layers = []
         for _ in range(2):
             middle_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            # middle_layers.append(nn.InstanceNorm2d(base_channels))
+            middle_layers.append(nn.InstanceNorm2d(base_channels))
             middle_layers.append(nn.ReLU(inplace=True))
 
         self.conv_middle_blocks = nn.Sequential(*middle_layers)
@@ -31,7 +31,7 @@ class Extractor(nn.Module):
         output_layers = []
         for _ in range(3):
             output_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            # output_layers.append(nn.InstanceNorm2d(base_channels))
+            output_layers.append(nn.InstanceNorm2d(base_channels))
             output_layers.append(nn.ReLU(inplace=True))
 
         self.conv_output_blocks = nn.Sequential(*output_layers)
