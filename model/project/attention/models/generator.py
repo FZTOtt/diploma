@@ -87,13 +87,13 @@ class Generator(nn.Module):
         x = self.fusion_layers(x)
         
         # HAM 1
-        x = self.ham1(x)
+        # x = self.ham1(x)
         
         # up-sampling
         x = self.up_sampling_layers(x)
         
         # HAM 2
-        x = self.ham2(x)
+        # x = self.ham2(x)
 
         x = self.output_layers(x)
         

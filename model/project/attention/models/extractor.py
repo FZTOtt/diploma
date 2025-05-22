@@ -45,11 +45,11 @@ class Extractor(nn.Module):
         """
         x = self.conv_start_blocks(x)     # [B, base_channels, H, W]
         
-        x = self.ham1(x)                  # [B, base_channels, H, W]
+        # x = self.ham1(x)                  # [B, base_channels, H, W]
 
         x = self.conv_middle_blocks(x)
 
-        x = self.ham2(x)                  # [B, base_channels, H, W]
+        # x = self.ham2(x)                  # [B, base_channels, H, W]
 
         x = self.conv_output_blocks(x)
         
