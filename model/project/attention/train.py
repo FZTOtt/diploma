@@ -68,11 +68,8 @@ def train(
         running_lc = 0.0
         for i, (cover, _) in enumerate(loader, 1):
             cover = cover.to(device)
-            if random.random() < 0.5:
-                secret = torch.zeros_like(cover)  # обучение сохранению cover
-            else:
-                secret = torch.randn_like(cover)
-            stego = G(cover, cover)  
+            secret = torch.randn_like(cover)
+            stego = G(cover, secret)  
             lc = concealment_loss(cover, stego)
 
             optG.zero_grad()
