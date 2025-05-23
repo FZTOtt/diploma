@@ -126,7 +126,7 @@ def train(
             'E': E.state_dict(),
             'D': D.state_dict()
         }
-        torch.save(ckpt, f"./checkpoints/full_epoch_{epoch:03d}.pth")
+        torch.save(ckpt, f"./checkpoints1/full_epoch_{epoch:03d}.pth")
 
     print("Training complete.")
 
