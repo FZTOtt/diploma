@@ -28,7 +28,7 @@ def save_checkpoint(models, optimizers, epoch, path):
 def train(
     data_root: str,
     batch_size: int = 8,
-    pretrain_epochs=10, 
+    pretrain_epochs=50, 
     full_epochs: int = 100,
     lr: float = 1e-4,
     beta1: float = 0.5,
