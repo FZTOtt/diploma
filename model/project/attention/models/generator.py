@@ -1,102 +1,60 @@
 import torch
 import torch.nn as nn
+from attention.models.downBlock import DownBlock
+from attention.models.fusionBlock import FusionBlock
 from attention.models.ham import HAMModule
 import torch.nn.functional as F
+
+from attention.models.resudalBlock import ResidualBlock
+from attention.models.upBlock import UpBlock
 
 class Generator(nn.Module):
     def __init__(self, in_channels=3, base_channels=64):
         super().__init__()
-        input_cover_layers = []
-
-        input_cover_layers.append(nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1))
-        input_cover_layers.append(nn.InstanceNorm2d(base_channels))
-        input_cover_layers.append(nn.ReLU(inplace=True))
-
-        input_cover_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=4, stride=2, padding=1))
-        input_cover_layers.append(nn.InstanceNorm2d(base_channels))
-        input_cover_layers.append(nn.ReLU(inplace=True))
-
-        self.conv_cover_blocks = nn.Sequential(*input_cover_layers)
-
-        input_secret_layers = []
-
-        input_secret_layers.append(nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1))
-        input_secret_layers.append(nn.InstanceNorm2d(base_channels))
-        input_secret_layers.append(nn.ReLU(inplace=True))
-
-        input_secret_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=4, stride=2, padding=1))
-        input_secret_layers.append(nn.InstanceNorm2d(base_channels))
-        input_secret_layers.append(nn.ReLU(inplace=True))
-
-        self.conv_secret_blocks = nn.Sequential(*input_secret_layers)
-
-        fusion_layers = []
-
-        fusion_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=1))
-        fusion_layers.append(nn.InstanceNorm2d(base_channels))
-        fusion_layers.append(nn.ReLU(inplace=True))
-
-        for _ in range(2):
-            fusion_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            fusion_layers.append(nn.InstanceNorm2d(base_channels))
-            fusion_layers.append(nn.ReLU(inplace=True))
-
-        self.fusion_layers = nn.Sequential(*fusion_layers)
-
-        self.ham1 = HAMModule(base_channels)
-
-        up_sampling_layers = []
-
-        up_sampling_layers.append(nn.ConvTranspose2d(base_channels, base_channels, kernel_size=4, stride=2, padding=1))
-        up_sampling_layers.append(nn.InstanceNorm2d(base_channels))
-        up_sampling_layers.append(nn.ReLU(inplace=True))
-
-        for _ in range(2):
-            up_sampling_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            up_sampling_layers.append(nn.InstanceNorm2d(base_channels))
-            up_sampling_layers.append(nn.ReLU(inplace=True))
-
-        self.up_sampling_layers = nn.Sequential(*up_sampling_layers)
-
-        self.ham2 = HAMModule(base_channels)
-
-        output_layers = []
-
-        for _ in range(2):
-            output_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            # output_layers.append(nn.InstanceNorm2d(base_channels))
-            output_layers.append(nn.ReLU(inplace=True))
-
-        output_layers.append(nn.Conv2d(base_channels, in_channels, kernel_size=3, padding=1))
         
-        self.output_layers = nn.Sequential(*output_layers)
-        self.tanh = nn.Tanh()
+        # Encoder для cover и secret
+        self.cover_encoder = nn.Sequential(
+            DownBlock(in_channels, base_channels),
+            DownBlock(base_channels, base_channels*2)
+        )
+        
+        self.secret_encoder = nn.Sequential(
+            DownBlock(in_channels, base_channels),
+            DownBlock(base_channels, base_channels*2)
+        )
+        
+        # Многоуровневое слияние
+        self.fusion_blocks = nn.ModuleList([
+            FusionBlock(base_channels*2),
+            FusionBlock(base_channels*2)
+        ])
+        
+        # Обработка с residual блоками
+        self.process = nn.Sequential(
+            *[ResidualBlock(base_channels*2) for _ in range(4)]
+        )
+        
+        # Decoder с attention
+        self.decoder = nn.Sequential(
+            UpBlock(base_channels*2, base_channels),
+            HAMModule(base_channels),
+            UpBlock(base_channels, in_channels),
+            nn.Tanh()
+        )
 
     def forward(self, cover, secret):
-
-        # отдельно идёт первая пара conv
-
-        c = self.conv_cover_blocks(cover)
+        # Кодируем оба входа
+        cover_feat = self.cover_encoder(cover)
+        secret_feat = self.secret_encoder(secret)
         
-        s = self.conv_secret_blocks(secret)
+        # Многоуровневое слияние
+        fused = self.fusion_blocks[0](cover_feat, secret_feat)
+        fused = self.fusion_blocks[1](fused, secret_feat)
         
-        # поэлементная сумма признаков
-        x = c + s
+        # Обработка признаков
+        processed = self.process(fused)
         
-        # fusion-блок
-        x = self.fusion_layers(x)
+        # Декодирование
+        output = self.decoder(processed)
         
-        # HAM 1
-        x = self.ham1(x)
-        
-        # up-sampling
-        x = self.up_sampling_layers(x)
-        
-        # HAM 2
-        x = self.ham2(x)
-
-        x = self.output_layers(x)
-        
-        # выход
-        x = self.tanh(x)
-        return x
+        return output

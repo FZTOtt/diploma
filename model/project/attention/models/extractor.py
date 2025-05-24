@@ -1,57 +1,44 @@
 import torch.nn as nn
+import torch
 import torch.nn.functional as F
+from attention.models.downBlock import DownBlock
 from attention.models.ham import HAMModule
+from attention.models.resudalBlock import ResidualBlock
+from attention.models.upBlock import UpBlock
 
 class Extractor(nn.Module):
     def __init__(self, in_channels=3, base_channels=64):
         super().__init__()
-        input_layers = []
-        for _ in range(2):
-            input_layers.append(nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1))
-            input_layers.append(nn.InstanceNorm2d(base_channels))
-            input_layers.append(nn.ReLU(inplace=True))
-            in_channels = base_channels
         
-        self.conv_start_blocks = nn.Sequential(*input_layers)
+        # Encoder
+        self.enc1 = DownBlock(in_channels, base_channels)
+        self.enc2 = DownBlock(base_channels, base_channels*2)
         
-        # два HAM-модуля подряд
-        self.ham1 = HAMModule(base_channels)
-
-        middle_layers = []
-        for _ in range(2):
-            middle_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            middle_layers.append(nn.InstanceNorm2d(base_channels))
-            middle_layers.append(nn.ReLU(inplace=True))
-
-        self.conv_middle_blocks = nn.Sequential(*middle_layers)
-
-        self.ham2 = HAMModule(base_channels)
+        # Bottleneck
+        self.bottleneck = nn.Sequential(
+            *[ResidualBlock(base_channels*2) for _ in range(4)]
+        )
         
-        # финальный свёрточный слой
-        output_layers = []
-        for _ in range(3):
-            output_layers.append(nn.Conv2d(base_channels, base_channels, kernel_size=3, padding=1))
-            output_layers.append(nn.InstanceNorm2d(base_channels))
-            output_layers.append(nn.ReLU(inplace=True))
-
-        self.conv_output_blocks = nn.Sequential(*output_layers)
-
-        self.final_conv = nn.Conv2d(base_channels, 3, kernel_size=3, padding=1)
-        self.tanh = nn.Tanh()
+        # Decoder с skip-connections
+        self.dec1 = UpBlock(base_channels*2, base_channels)
+        self.dec2 = UpBlock(base_channels*2, base_channels)  # skip from enc1
+        
+        # Attention в последнем слое
+        self.final = nn.Sequential(
+            nn.Conv2d(base_channels, base_channels, 3, padding=1),
+            HAMModule(base_channels),
+            nn.Conv2d(base_channels, in_channels, 3, padding=1),
+            nn.Tanh()
+        )
 
     def forward(self, x):
-        """
-        x: stego-изображение [B,3,H,W]
-        """
-        x = self.conv_start_blocks(x)     # [B, base_channels, H, W]
+        e1 = self.enc1(x)
+        e2 = self.enc2(e1)
         
-        x = self.ham1(x)                  # [B, base_channels, H, W]
-
-        x = self.conv_middle_blocks(x)
-
-        x = self.ham2(x)                  # [B, base_channels, H, W]
-
-        x = self.conv_output_blocks(x)
+        b = self.bottleneck(e2)
         
-        x = self.tanh(self.final_conv(x)) # [B, 3, H, W]
-        return x
+        d1 = self.dec1(b)
+        d1 = torch.cat([d1, e1], dim=1)
+        
+        d2 = self.dec2(d1)
+        return self.final(d2)
