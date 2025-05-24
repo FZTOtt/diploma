@@ -4,16 +4,21 @@ from attention.models.ham import HAMModule
 from attention.models.spatialAttention import SpatialAttention
 
 class UpBlock(nn.Module):
-    def __init__(self, in_c, out_c, use_attn=False):
+    def __init__(self, in_channels, out_channels, use_attn=False):
         super().__init__()
-        layers = [
-            nn.ConvTranspose2d(in_c, out_c, 4, stride=2, padding=1),
-            nn.InstanceNorm2d(out_c),
+        self.conv = nn.Sequential(
+            nn.ConvTranspose2d(in_channels, out_channels, 4, 
+                             stride=2, padding=1),
+            nn.InstanceNorm2d(out_channels),
             nn.LeakyReLU(0.2)
-        ]
+        )
         if use_attn:
-            layers.append(HAMModule(out_c))
-        self.conv = nn.Sequential(*layers)
-    
+            self.attn = HAMModule(out_channels)
+        else:
+            self.attn = None
+
     def forward(self, x):
-        return self.conv(x)
+        x = self.conv(x)
+        if self.attn is not None:
+            x = self.attn(x)
+        return x
