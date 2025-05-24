@@ -9,52 +9,36 @@ from attention.models.resudalBlock import ResidualBlock
 from attention.models.upBlock import UpBlock
 
 class Generator(nn.Module):
-    def __init__(self, in_channels=3, base_channels=64):
+    def __init__(self, in_c=3, base_c=64):
         super().__init__()
         
-        # Encoder для cover и secret
-        self.cover_encoder = nn.Sequential(
-            DownBlock(in_channels, base_channels),
-            DownBlock(base_channels, base_channels*2)
+        # Энкодеры
+        self.cover_enc = nn.Sequential(
+            DownBlock(in_c, base_c),
+            DownBlock(base_c, base_c*2, use_attn=True)
         )
         
-        self.secret_encoder = nn.Sequential(
-            DownBlock(in_channels, base_channels),
-            DownBlock(base_channels, base_channels*2)
+        self.secret_enc = nn.Sequential(
+            DownBlock(in_c, base_c),
+            DownBlock(base_c, base_c*2)
         )
-        
-        # Многоуровневое слияние
-        self.fusion_blocks = nn.ModuleList([
-            FusionBlock(base_channels*2),
-            FusionBlock(base_channels*2)
-        ])
-        
-        # Обработка с residual блоками
-        self.process = nn.Sequential(
-            *[ResidualBlock(base_channels*2) for _ in range(4)]
+
+        # Боттлнек
+        self.fusion = nn.Sequential(
+            ResidualBlock(base_c*4),
+            ResidualBlock(base_c*4),
+            HAMModule(base_c*4)  # Добавим внимание в генератор
         )
-        
-        # Decoder с attention
+
+        # Декодер
         self.decoder = nn.Sequential(
-            UpBlock(base_channels*2, base_channels),
-            HAMModule(base_channels),
-            UpBlock(base_channels, in_channels),
-            nn.Tanh()
+            UpBlock(base_c*4, base_c*2),
+            UpBlock(base_c*2, in_c)
         )
 
     def forward(self, cover, secret):
-        # Кодируем оба входа
-        cover_feat = self.cover_encoder(cover)
-        secret_feat = self.secret_encoder(secret)
-        
-        # Многоуровневое слияние
-        fused = self.fusion_blocks[0](cover_feat, secret_feat)
-        fused = self.fusion_blocks[1](fused, secret_feat)
-        
-        # Обработка признаков
-        processed = self.process(fused)
-        
-        # Декодирование
-        output = self.decoder(processed)
-        
-        return output
+        c_feat = self.cover_enc(cover)
+        s_feat = self.secret_enc(secret)
+        fused = torch.cat([c_feat, s_feat], dim=1)
+        processed = self.fusion(fused)
+        return self.decoder(processed)

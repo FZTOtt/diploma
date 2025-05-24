@@ -1,27 +1,27 @@
 import torch
 import torch.nn as nn
 
+from attention.models.downBlock import DownBlock
+
 class Discriminator(nn.Module):
-    def __init__(self, in_channels=6, base_channels=64):
+    def __init__(self, in_c=6, base_c=64):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(in_channels, base_channels, 3, padding=1),
-            nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(base_channels),
+            # Downsampling blocks
+            DownBlock(in_c, base_c),
+            DownBlock(base_c, base_c*2),
+            DownBlock(base_c*2, base_c*4),
             
-            nn.Conv2d(base_channels, base_channels*2, 3, stride=2, padding=1),
+            # Final processing
+            nn.Conv2d(base_c*4, base_c*8, 4, padding=1),
             nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(base_channels*2),
             
-            nn.Conv2d(base_channels*2, base_channels*4, 3, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
-            nn.BatchNorm2d(base_channels*4),
-            
+            # Global pooling and final output
             nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(base_channels*4, 1)
+            nn.Conv2d(base_c*8, 1, 1)
         )
 
-    def forward(self, cover: torch.Tensor, stego: torch.Tensor) -> torch.Tensor:
+    def forward(self, cover, stego):
         x = torch.cat([cover, stego], dim=1)
-        return self.net(x)
+        x = self.net(x)
+        return x.view(x.size(0), -1)

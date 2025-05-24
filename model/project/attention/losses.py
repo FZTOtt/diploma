@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 # ----------------------------
 # 1. Concealment (hiding) loss
@@ -37,7 +38,7 @@ def generator_adversarial_loss(disc_logits_fake: torch.Tensor) -> torch.Tensor:
     чтобы дискриминатор ставил метку «реальное» (1).
     """
     target_real = torch.ones_like(disc_logits_fake)
-    return bce_loss(disc_logits_fake, target_real)
+    return F.binary_cross_entropy_with_logits(disc_logits_fake, target_real)
 
 def discriminator_adversarial_loss(
     disc_logits_real: torch.Tensor,
@@ -50,8 +51,8 @@ def discriminator_adversarial_loss(
     """
     target_real = torch.ones_like(disc_logits_real)
     target_fake = torch.zeros_like(disc_logits_fake)
-    loss_real = bce_loss(disc_logits_real, target_real)
-    loss_fake = bce_loss(disc_logits_fake, target_fake)
+    loss_real = F.binary_cross_entropy_with_logits(disc_logits_real, target_real)
+    loss_fake = F.binary_cross_entropy_with_logits(disc_logits_fake, target_fake)
     return loss_real + loss_fake
 
 
